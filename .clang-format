@@ -1,4 +1,3 @@
----
 BasedOnStyle: Microsoft
 AlignConsecutiveDeclarations: 'true'
 BreakBeforeBinaryOperators: NonAssignment
@@ -6,5 +5,3 @@ ColumnLimit: '80'
 PointerAlignment: Left
 SortIncludes: 'false'
 Standard: Cpp11
-
-...
