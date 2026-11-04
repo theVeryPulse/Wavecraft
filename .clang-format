@@ -1,7 +1,12 @@
 BasedOnStyle: Microsoft
+BinPackArguments: 'false'
+AlignConsecutiveAssignments: 'false'
 AlignConsecutiveDeclarations: 'true'
 BreakBeforeBinaryOperators: NonAssignment
 ColumnLimit: '80'
+# PenaltyBreakAssignment: '1000'
 PointerAlignment: Left
 SortIncludes: 'false'
-Standard: Cpp11
+
+BraceWrapping:
+  AfterCaseLabel: true

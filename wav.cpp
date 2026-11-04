@@ -2,10 +2,17 @@
 #include <numbers>
 #include <fstream>
 #include <iostream>
+#include <vector>
 
 using Sample8Bit = int8_t;
 using Sample16Bit = int16_t; // 16-bit: [0, 65535], [-32768, 32767]
 using Sample32Bit = float;
+
+using i8 = int8_t;
+
+using u16 = u_int16_t;
+using u32 = u_int32_t;
+using u64 = u_int64_t;
 
 class SineOscillator
 {
@@ -62,7 +69,6 @@ SineOscillator& SineOscillator::operator=(const SineOscillator& other)
 }
 #endif
 
-
 class WavHeader
 {
   public:
@@ -77,52 +83,67 @@ class WavHeader
     WavHeader(const WavHeader& other) = delete;
     WavHeader& operator=(const WavHeader& other) = delete;
     //------------------------------- Functions --------------------------------
-    //---------------------------------- Data ----------------------------------   
+    void setHeader(u32 file_size, u32 fmt_chunk_size, u16 audio_format,
+                   u16 channel_number, u32 sample_rate, u32 byte_rate,
+                   u16 block_alignment, u16 bits_per_sample, u32 data_size)
+    {
+        this->file_size_ = file_size;
+        this->fmt_chunk_size_ = fmt_chunk_size;
+        this->audio_format_ = audio_format;
+        this->channel_number_ = channel_number;
+        this->sample_rate_ = sample_rate;
+        this->byte_rate_ = byte_rate;
+        this->block_alignment_ = block_alignment;
+        this->bits_per_sample_ = bits_per_sample;
+        this->data_size_ = data_size;
+    }
+    //---------------------------------- Data ----------------------------------
+    static constexpr u16 AUDIO_FORMAT_PCM = 1;
 
     // RIFF chunk
     struct
     {
         const char riff_marker_[4] = {'R', 'I', 'F', 'F'};
-        u_int32_t  file_size_; // Size of the file excluding the 8 bytes metadata
+        u32 file_size_; // Size of the file excluding the 8 bytes metadata
         const char wave_marker_[4] = {'W', 'A', 'V', 'E'};
     };
 
     // fmt chunk
     struct
     {
-        const char fmt_[4] = {'f', 'm', 't', '\0'};
+        const char fmt_marker_[4] = {'f', 'm', 't', ' '};
 
         // PCM uses 16 bytes excluding 8 bytes metadata
-        u_int32_t  fmt_chunk_size_;
-        
+        u32 fmt_chunk_size_;
+
         // 1 = PCM (pulse-code modulation)
-        u_int16_t  audio_format_;
-        
+        u16 audio_format_;
+
         // 1 = mono, 2 = stereo
-        u_int16_t  channel_number_;
-        
+        u16 channel_number_;
+
         // Hertz, usually 44100 (CD)
-        u_int32_t  sample_rate_;
-        
-        // Bytes per second. Sample rate * bit rate * channels / 8 (44100 * 16 * 1 / 8 = 88200 Byte)
-        u_int32_t  byte_rate_;
-        
+        u32 sample_rate_;
+
+        // Bytes per second. Sample rate * bit rate * channels / 8 (44100 * 16 *
+        // 1 / 8 = 88200 Byte)
+        u32 byte_rate_;
+
         // Bytes per sample frame. Frame may contain 2 channels, so for 16 bit
-        // mono, the block alignment is 2 bytes. But for 16 bit stereo, the 
+        // mono, the block alignment is 2 bytes. But for 16 bit stereo, the
         // block alignment is 4 bytes (2 bytes each channel for that frame)
-        u_int16_t  block_alignment_;
-        
+        u16 block_alignment_;
+
         // Bit depth, e.g. 16
-        u_int16_t  bits_per_sample_;
+        u16 bits_per_sample_;
     };
 
     // Data chunk
     struct
     {
         const char data_marker_[4] = {'d', 'a', 't', 'a'};
-        u_int32_t  data_size_;
+        u32        data_size_;
     };
-    // char*      data;
 
   protected:
     //--------------- Types: Classes, Enums, and Aliases (using) ---------------
@@ -144,6 +165,7 @@ float SineOscillator::getNextSample()
     return sample;
 }
 
+
 int main()
 {
 #ifdef __linux__
@@ -156,26 +178,51 @@ int main()
     std::cout << "Unknown platform\n";
 #endif
 
-    SineOscillator sine_oscillator(440.0f, 0.5f);
+    SineOscillator sine_oscillator(200.0f, 0.5f);
 
-    std::ofstream audioFile("waveform", std::ios::binary);
 
-    WavHeader wave_header;
+    // Generate the data
+    std::vector<Sample16Bit> samples;
 
-    audioFile.write(reinterpret_cast<char*>(&wave_header), sizeof(wave_header));
-    
-    const int duration = 2;
-    Sample16Bit max_amplitude =
-        static_cast<Sample16Bit>(std::pow(2, SineOscillator::BIT_DEPTH - 1) - 1);
+    const int         duration = 2; // Seconds
+    const Sample16Bit max_amplitude = static_cast<Sample16Bit>(
+        std::pow(2, SineOscillator::BIT_DEPTH - 1) - 1);
     for (int i = 0; i < SineOscillator::SAMPLE_RATE * duration; ++i)
     {
         const float normalized_sample = sine_oscillator.getNextSample();
         Sample16Bit sample = static_cast<Sample16Bit>(
             std::roundf(normalized_sample * max_amplitude));
-        audioFile.write(reinterpret_cast<char*>(&sample), sizeof(Sample16Bit));
-        // audioFile << "\n"; // Real binary doesn't need the newlines
+        samples.emplace_back(sample);
     }
 
+    // Generate header
+    WavHeader wav_header{};
+    const u32 data_size = samples.size() * sizeof(samples.front());
+    const u16 bits_per_sample = 16;
+    const u16 channel_number = 1;
+    const u32 sample_rate = 44100;
+    const u16 block_alignment = bits_per_sample * channel_number / 8;
+    const u32 byte_rate = sample_rate * block_alignment;
+    const u32 file_size = sizeof(WavHeader) - 8 + data_size;
+    wav_header.setHeader(file_size,
+                         16,
+                         WavHeader::AUDIO_FORMAT_PCM,
+                         1,
+                         sample_rate,
+                         byte_rate,
+                         block_alignment,
+                         bits_per_sample,
+                         data_size);
+
+    std::ofstream audioFile("waveform.wav", std::ios::binary);
+
+    // Write the header (this should be 44 bytes)
+    audioFile.write(reinterpret_cast<char*>(&wav_header), sizeof(wav_header));
+    // Write the data at the end
+    audioFile.write(reinterpret_cast<char*>(samples.data()),
+                    samples.size() * sizeof(Sample16Bit));
+
     audioFile.close();
+
     return 0;
 }
