@@ -6,7 +6,9 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(wav
-    src/wav.cpp
+    src/main.cpp
+    src/SineOscillator.cpp
+    src/WavHeader.cpp
 )
 
 # Put the final executable in the project root
