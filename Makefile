@@ -1,4 +1,4 @@
-.PHONY: all debug release clean
+.PHONY: all debug release clean re
 
 all: debug
 
@@ -14,3 +14,5 @@ release:
 
 clean:
 	rm -rf build
+
+re: clean all
