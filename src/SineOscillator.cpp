@@ -2,8 +2,8 @@
 #include <numbers>
 #include <cmath>
 
-SineOscillator::SineOscillator(float frequency, float amplitude)
-    : frequency_(frequency), amplitude_(amplitude)
+SineOscillator::SineOscillator(float frequency, float max_normalized_amplitude)
+    : frequency_(frequency), max_normalized_amplitude_(max_normalized_amplitude)
 {
     offset_ = 2 * std::numbers::pi_v<float> * frequency_ / SAMPLE_RATE;
 }
@@ -25,7 +25,7 @@ SineOscillator& SineOscillator::operator=(const SineOscillator& other)
 
 float SineOscillator::getNextSample()
 {
-    const auto sample = amplitude_ * std::sinf(angle_);
+    const auto sample = max_normalized_amplitude_ * std::sinf(angle_);
     angle_ += offset_;
     return sample;
 }

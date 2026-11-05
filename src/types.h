@@ -4,9 +4,9 @@
 
 #include <cstdint>
 
-using Sample8Bit = int8_t;
-using Sample16Bit = int16_t; // 16-bit: [0, 65535], [-32768, 32767]
-using Sample32Bit = float;
+using PCM8 = int8_t;
+using PCM16 = int16_t; // Pulse-code modulation 16-bit: [0, 65535], [-32768, 32767]
+using PCM32 = float; // Pulse-code modulation: float
 
 using i8 = int8_t;
 

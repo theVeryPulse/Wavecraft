@@ -7,6 +7,14 @@
 #include <fstream>
 #include <iostream>
 
+PCM16 getPCM16(float normalized_amplitude)
+{
+    static const PCM16 max_amplitude =
+        static_cast<PCM16>(std::pow(2, 16 - 1) - 1);
+    return static_cast<PCM16>(
+        std::roundf(normalized_amplitude * max_amplitude));
+}
+
 int main()
 {
 #ifdef __linux__
@@ -20,33 +28,34 @@ int main()
 #endif
 
     // Generate the data
-    std::vector<Sample16Bit> samples;
+    std::vector<PCM16> monoSamples;
+    std::vector<PCM16> stereoSamples;
 
-    const int         duration = 2; // Seconds
-    const Sample16Bit max_amplitude = static_cast<Sample16Bit>(
-        std::pow(2, SineOscillator::BIT_DEPTH - 1) - 1);
-    SineOscillator sine_oscillator(200.0f, 0.5f);
+    const int duration = 5; // Seconds
+    // This should determine the loudness
+    SineOscillator sine_oscillator(777.0f, 0.5f);
+    SineOscillator sine_oscillator2(400.0f, 0.5f);
     for (int i = 0; i < SineOscillator::SAMPLE_RATE * duration; ++i)
     {
-        const float normalized_sample = sine_oscillator.getNextSample();
-        Sample16Bit sample = static_cast<Sample16Bit>(
-            std::roundf(normalized_sample * max_amplitude));
-        samples.emplace_back(sample);
+        stereoSamples.emplace_back(getPCM16(sine_oscillator.getNextSample()));
+        stereoSamples.emplace_back(getPCM16(sine_oscillator2.getNextSample()));
+
+        monoSamples.emplace_back(getPCM16(sine_oscillator.getNextSample()));
     }
 
     // Generate header
     WavHeader wav_header{};
-    const u32 data_size = samples.size() * sizeof(samples.front());
+    const u32 data_size = stereoSamples.size() * sizeof(stereoSamples.front());
     const u16 bits_per_sample = 16;
-    const u16 channel_number = 1;
+    const u16 channel_number = 2;
     const u32 sample_rate = 44100;
     const u16 block_alignment = bits_per_sample * channel_number / 8;
     const u32 byte_rate = sample_rate * block_alignment;
     const u32 file_size = sizeof(WavHeader) - 8 + data_size;
     wav_header.setHeader(file_size,
-                         16,
+                         WavHeader::FMT_CHUNK_SIZE,
                          WavHeader::AUDIO_FORMAT_PCM,
-                         1,
+                         channel_number,
                          sample_rate,
                          byte_rate,
                          block_alignment,
@@ -58,8 +67,8 @@ int main()
     // Write the header (this should be 44 bytes)
     audioFile.write(reinterpret_cast<char*>(&wav_header), sizeof(wav_header));
     // Write the data at the end
-    audioFile.write(reinterpret_cast<char*>(samples.data()),
-                    samples.size() * sizeof(Sample16Bit));
+    audioFile.write(reinterpret_cast<char*>(stereoSamples.data()),
+                    stereoSamples.size() * sizeof(PCM16));
     audioFile.close();
 
     return 0;
